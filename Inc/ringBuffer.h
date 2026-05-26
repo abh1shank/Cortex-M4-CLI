@@ -4,7 +4,7 @@
 #define MAX_SIZE 20
 
 typedef struct {
-    char bufferArr[MAX_SIZE];
+    char bufferArr[MAX_SIZE]; //struct gives storage array to rb
     char* head;
     char* tail;
     int size;

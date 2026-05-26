@@ -5,6 +5,9 @@
 
 #define HEAP_SIZE 16
 
+
+//this enum is to be used in switch case inside infinite while looop,
+//we need to check what the event type actually is so that we can take appropriate actions
 typedef enum {
     EVENT_CMD,
     EVENT_BUTTON,
@@ -22,7 +25,7 @@ typedef struct {
 
 typedef struct {
     Event   buffer[HEAP_SIZE];
-    int     size;
+    int     size; //initialise with zero, means empty heap in the beginning
 } MinHeap;
 
 void     heap_insert(MinHeap *h, Event e);

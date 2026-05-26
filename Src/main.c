@@ -21,13 +21,17 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#define MAX 100
-
+#define MAX 20
+#include <string.h>
+#include <stdio.h>
+#include "ringBuffer.h"
+#include "minHeap_custom.h"
+#include "commandHandler.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define RING_BUFFER_SIZE 10
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -44,6 +48,14 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+MinHeap heap;
+RingBuffer myBuffer;
+uint8_t rx_byte;
+int currentState;
+int blinkInterval;
+int lastButtonTime;
+char cmd[MAX];
+int cmd_index=0;
 
 /* USER CODE END PV */
 
@@ -57,6 +69,17 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+int _write(int file, char *ptr, int len)
+{
+    HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
+    return len;
+}
+
+int _write(int file, chr *ptr, int len)
+{
+	HAL_UART_Transmit(&huart2, (unint8_t*)ptr, len);
+}
 
 /* USER CODE END 0 */
 
@@ -91,13 +114,51 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  	  //buffer initialisation
 
+  	  myBuffer->init(&cmd);
+  	  heap.size=0;
+  	  //first interrupt to begin data reception in interrupt mode, arguments empty, i suppose this is initialisation of sort?
+  	  HAL_UART_Recieve_IT();
+
+
+  	  //first statement to UART
+  	  printf("Enter Command");
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+
+	  //a command is in the buffer so we have to empty it
+	  if (!rb_isEmpty(&myBuffer)){
+		  char c = rb_pop(&myBuffer);
+		  if (c == '\n'){
+
+			  Event new_cmd;
+			  strncpy(new_cmd.data,cmd);
+			  cmd_index=0;
+		  }
+		  else{
+			  cmd[cmd_index++] = c;
+		  }
+	  }
+
+	  //an event is in the heap so we gotta check and dispatch it
+	  if (!heap_isEmpty(&heap)){
+		  Event e = heap_pop(&heap);
+
+		  switch(e.type)
+		  {
+		  	  case EVENT_CMD:
+
+
+		  }
+
+	  }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -300,6 +361,11 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+
+
+
+
 
 /* USER CODE END 4 */
 
