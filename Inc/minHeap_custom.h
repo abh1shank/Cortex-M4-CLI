@@ -11,9 +11,7 @@
 typedef enum {
     EVENT_CMD,
     EVENT_BUTTON,
-    EVENT_BLINK,
-    EVENT_STATUS,
-    EVENT_PANIC
+    EVENT_SOS
 } EventType;
 
 typedef struct {

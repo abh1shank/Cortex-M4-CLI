@@ -152,8 +152,12 @@ int main(void)
 
 		  switch(e.type)
 		  {
-		  	  case EVENT_CMD:
-
+		  	   case EVENT_SOS:
+		  		   sos_handler();
+		  	   case EVENT_BUTTON:
+		  		   button_handler();
+		  	   default:
+		  		   command_handler();
 
 		  }
 
@@ -165,60 +169,6 @@ int main(void)
   }
   /* USER CODE END 3 */
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 /**

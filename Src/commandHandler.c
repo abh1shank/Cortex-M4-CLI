@@ -8,7 +8,7 @@
  * SOS
  *
  */
-
-
+void handle_command(char *cmd);
+void handle_button_press(char *cmd);
 
 #endif
