@@ -21,7 +21,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#define MAX 20
 #include <string.h>
 #include <stdio.h>
 #include "ringBuffer.h"
@@ -36,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define CMD_MAX 20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,14 +47,14 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-MinHeap heap;
+MinHeap    eventQueue;
 RingBuffer myBuffer;
-uint8_t rx_byte;
-int currentState;
-int blinkInterval;
-int lastButtonTime;
-char cmd[MAX];
-int cmd_index=0;
+uint8_t    rx_byte;
+int        currentState  = 0;
+int        blinkInterval = 500;
+uint32_t   lastButtonTime = 0;
+char       cmd[CMD_MAX];
+int        cmd_index = 0;
 
 /* USER CODE END PV */
 
@@ -75,12 +74,6 @@ int _write(int file, char *ptr, int len)
     HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
     return len;
 }
-
-int _write(int file, chr *ptr, int len)
-{
-	HAL_UART_Transmit(&huart2, (unint8_t*)ptr, len);
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -114,61 +107,90 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  	  //buffer initialisation
-
-  	  myBuffer->init(&cmd);
-  	  heap.size=0;
-  	  //first interrupt to begin data reception in interrupt mode, arguments empty, i suppose this is initialisation of sort?
-  	  HAL_UART_Recieve_IT();
-
-
-  	  //first statement to UART
-  	  printf("Enter Command");
+  rb_init(&myBuffer);
+  eventQueue.size = 0;
+  HAL_UART_Receive_IT(&huart2, &rx_byte, 1);
+  printf("CORTEX-M4-CLI ready\r\n");
+  printf("Type HELP for commands\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+      // ── Thing 1: drain ring buffer → build command string ──
+      if (!rb_isEmpty(&myBuffer))
+      {
+          char c = rb_pop(&myBuffer);
 
+          if (c == '\n' || c == '\r')
+          {
+              if (cmd_index > 0)                    // ignore empty lines
+              {
+                  cmd[cmd_index] = '\0';            // null terminate
 
-	  //a command is in the buffer so we have to empty it
-	  if (!rb_isEmpty(&myBuffer)){
-		  char c = rb_pop(&myBuffer);
-		  if (c == '\n'){
+                  Event new_cmd;
+                  new_cmd.priority  = 2;            // PRIORITY_NORMAL
+                  new_cmd.timestamp = HAL_GetTick();
+                  new_cmd.type      = EVENT_CMD;
+                  strncpy(new_cmd.data, cmd, sizeof(new_cmd.data) - 1);
+                  new_cmd.data[sizeof(new_cmd.data)-1] = '\0';
 
-			  Event new_cmd;
-			  strncpy(new_cmd.data,cmd);
-			  cmd_index=0;
-		  }
-		  else{
-			  cmd[cmd_index++] = c;
-		  }
-	  }
+                  __disable_irq();
+                  heap_insert(&eventQueue, new_cmd);
+                  __enable_irq();
 
-	  //an event is in the heap so we gotta check and dispatch it
-	  if (!heap_isEmpty(&heap)){
-		  Event e = heap_pop(&heap);
+                  cmd_index = 0;
+              }
+          }
+          else
+          {
+              if (cmd_index < CMD_MAX - 1)
+                  cmd[cmd_index++] = c;
+          }
+      }
 
-		  switch(e.type)
-		  {
-		  	   case EVENT_SOS:
-		  		   sos_handler();
-		  	   case EVENT_BUTTON:
-		  		   button_handler();
-		  	   default:
-		  		   command_handler();
+      // ── Thing 2: aging — boost priority of waiting events ──
+      heap_age(&eventQueue);
 
-		  }
+      // ── Thing 3: check heap → dispatch due events ──
+      if (!heap_isEmpty(&eventQueue))
+      {
+          Event top = heap_peek(&eventQueue);
 
-	  }
+          if (top.timestamp <= HAL_GetTick())
+          {
+              __disable_irq();
+              Event e = heap_pop(&eventQueue);
+              __enable_irq();
 
+              switch (e.type)
+              {
+                  case EVENT_CMD:
+                      command_handler(e.data);
+                      break;
+
+                  case EVENT_BUTTON:
+                      button_handler();
+                      break;
+
+                  case EVENT_SOS:
+                      SOS_handler();
+                      break;
+
+                  default:
+                      printf("Unknown event\r\n");
+                      break;
+              }
+          }
+      }
+  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
-}
+
 
 
 /**
@@ -312,10 +334,32 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART2)
+    {
+        rb_push(&myBuffer, (char)rx_byte);
+        HAL_UART_Receive_IT(&huart2, &rx_byte, 1);
+    }
+}
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == B1_Pin)
+    {
+        uint32_t now = HAL_GetTick();
+        if (now - lastButtonTime < 20) return;   // debounce
+        lastButtonTime = now;
 
+        Event e;
+        e.priority  = 0;                         // PRIORITY_CRITICAL
+        e.timestamp = HAL_GetTick();
+        e.type      = EVENT_BUTTON;
+        e.data[0]   = '\0';
 
-
+        heap_insert(&eventQueue, e);
+    }
+}
 
 /* USER CODE END 4 */
 

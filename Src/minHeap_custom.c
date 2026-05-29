@@ -1,5 +1,6 @@
 #include "minHeap_custom.h"
 #include <string.h>
+#include "main.h"
 
 // ─── internal helpers ────────────────────────────────────────────
 
@@ -59,6 +60,30 @@ static void bubble_down(MinHeap *h, int index)
 }
 
 // ─── public API ──────────────────────────────────────────────────
+
+// ─── aging: boost priority of all waiting events every second ────
+void heap_age(MinHeap *h)
+{
+    static uint32_t last_age_time = 0;
+    uint32_t now = HAL_GetTick();
+
+    // run once per second
+    if (now - last_age_time < 1000) return;
+    last_age_time = now;
+
+    // boost every event's priority by 1 (lower number = higher urgency)
+    for (int i = 0; i < h->size; i++)
+    {
+        if (h->buffer[i].priority > 0)   // don't go below 0
+            h->buffer[i].priority--;
+    }
+
+    // heap property violated after modifying priorities
+    // rebuild heap from scratch (heapify)
+    for (int i = (h->size / 2) - 1; i >= 0; i--)
+        bubble_down(h, i);
+}
+
 
 void heap_insert(MinHeap *h, Event e)
 {

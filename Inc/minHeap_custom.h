@@ -2,7 +2,7 @@
 #define MINHEAP_CUSTOM_H
 
 #include <stdint.h>
-
+#include "main.h"
 #define HEAP_SIZE 16
 
 
@@ -15,7 +15,7 @@ typedef enum {
 } EventType;
 
 typedef struct {
-    uint8_t   priority;     // 0 = highest
+    int16_t   priority;     // 0 = highest
     uint32_t  timestamp;    // HAL_GetTick() when created
     EventType type;
     char      data[64];     // command string payload
@@ -30,5 +30,5 @@ void     heap_insert(MinHeap *h, Event e);
 Event    heap_pop(MinHeap *h);
 Event    heap_peek(MinHeap *h);
 int      heap_isEmpty(MinHeap *h);
-
+void heap_age(MinHeap *h);
 #endif /* MINHEAP_CUSTOM_H */
